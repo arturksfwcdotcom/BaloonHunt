@@ -1,21 +1,24 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Мини-игра: Надувай и лопай</title>
+  <title>Balloons Pop</title>
   <style>
     :root{
       --bg1:#0f172a;
       --bg2:#111827;
       --panel: rgba(255,255,255,.12);
       --text:#ffffff;
-      --accent:#22c55e;
-      --danger:#ef4444;
       --shadow: 0 10px 30px rgba(0,0,0,.25);
+      --score-glow: rgba(255,255,255,.25);
     }
 
-    *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     html,body{
       margin:0;
       width:100%;
@@ -33,12 +36,12 @@
       top:0;
       left:0;
       right:0;
-      height:64px;
+      height:68px;
       display:flex;
       align-items:center;
       gap:10px;
       padding:10px 12px;
-      background: linear-gradient(to bottom, rgba(0,0,0,.42), rgba(0,0,0,.12));
+      background: linear-gradient(to bottom, rgba(0,0,0,.44), rgba(0,0,0,.10));
       backdrop-filter: blur(8px);
       z-index:20;
     }
@@ -48,12 +51,14 @@
       display:flex;
       flex-wrap:wrap;
       align-items:center;
-      gap:12px;
+      gap:10px;
       font-weight:700;
       text-shadow: 0 2px 8px rgba(0,0,0,.35);
+      min-width:0;
     }
 
     .pill{
+      position:relative;
       padding:8px 12px;
       border-radius:999px;
       background: var(--panel);
@@ -63,6 +68,29 @@
       gap:6px;
       font-size:14px;
       white-space:nowrap;
+      overflow:hidden;
+    }
+
+    #scorePill{
+      min-width:120px;
+      justify-content:flex-start;
+      transform: translateZ(0);
+    }
+
+    #scoreValue{
+      display:inline-block;
+      min-width:2ch;
+    }
+
+    #scorePill.bump{
+      animation: bump .22s ease-out;
+      box-shadow: 0 0 0 2px var(--score-glow), var(--shadow);
+    }
+
+    @keyframes bump{
+      0%{ transform: scale(1); }
+      50%{ transform: scale(1.08); }
+      100%{ transform: scale(1); }
     }
 
     .btn{
@@ -75,18 +103,23 @@
       box-shadow: var(--shadow);
       cursor:pointer;
     }
-    .btn:active{ transform: translateY(1px) scale(.99); }
+
+    .btn:active{
+      transform: translateY(1px) scale(.99);
+    }
 
     #game{
       position:fixed;
-      inset:64px 0 0 0;
+      inset:68px 0 0 0;
       overflow:hidden;
     }
 
     .balloon{
       position:absolute;
-      border-radius:50% 50% 46% 46%;
-      box-shadow: inset -10px -18px 22px rgba(0,0,0,.16), 0 8px 18px rgba(0,0,0,.2);
+      border-radius: 50% 50% 48% 48% / 58% 58% 42% 42%;
+      box-shadow:
+        inset -10px -18px 22px rgba(0,0,0,.16),
+        0 8px 18px rgba(0,0,0,.2);
       transform: translate(-50%, -50%);
       will-change: transform, left, top;
       display:flex;
@@ -96,30 +129,33 @@
       color: rgba(255,255,255,.96);
       text-shadow: 0 1px 3px rgba(0,0,0,.45);
       cursor:pointer;
+      overflow: visible;
     }
 
     .balloon::before{
       content:"";
       position:absolute;
-      top:85%;
-      left:50%;
-      width:2px;
-      height:34px;
-      background: rgba(255,255,255,.55);
-      transform: translateX(-50%);
-      filter: blur(.1px);
-    }
-
-    .balloon::after{
-      content:"";
-      position:absolute;
       top:12%;
-      left:25%;
+      left:24%;
       width:18%;
       height:24%;
       border-radius:50%;
       background: rgba(255,255,255,.22);
       transform: rotate(-20deg);
+      pointer-events:none;
+    }
+
+    .balloon::after{
+      content:"";
+      position:absolute;
+      top: calc(100% - 1px);
+      left:50%;
+      width:2px;
+      height:42px;
+      background: rgba(255,255,255,.58);
+      transform: translateX(-50%);
+      border-radius:999px;
+      pointer-events:none;
     }
 
     .bonus-all{
@@ -130,6 +166,13 @@
     .bonus-life{
       outline: 3px solid gold;
       box-shadow: 0 0 0 4px rgba(255,215,0,.18), 0 8px 18px rgba(0,0,0,.2);
+    }
+
+    .black-balloon{
+      outline: 2px solid rgba(255,255,255,.25);
+      box-shadow:
+        inset -10px -18px 22px rgba(255,255,255,.06),
+        0 8px 18px rgba(0,0,0,.28);
     }
 
     .burst{
@@ -149,9 +192,27 @@
       to{ transform: translate(-50%,-50%) scale(2.8); opacity:0; }
     }
 
+    .score-float{
+      position:absolute;
+      left:0;
+      top:0;
+      transform: translate(-50%, -50%);
+      font-weight:800;
+      text-shadow: 0 2px 8px rgba(0,0,0,.45);
+      pointer-events:none;
+      animation: floatUp .7s ease-out forwards;
+      z-index:15;
+    }
+
+    @keyframes floatUp{
+      0%{ opacity:0; transform: translate(-50%, -50%) scale(.9); }
+      15%{ opacity:1; }
+      100%{ opacity:0; transform: translate(-50%, -130%) scale(1.08); }
+    }
+
     #overlay{
       position:fixed;
-      inset:64px 0 0 0;
+      inset:68px 0 0 0;
       display:none;
       align-items:center;
       justify-content:center;
@@ -198,31 +259,32 @@
 <body>
   <div id="hud">
     <div id="stats">
-      <div class="pill">Очки: <span id="score">0</span></div>
-      <div class="pill">Жизни: <span id="lives">5</span></div>
-      <div class="pill">Пропущено: <span id="missed">0</span>/5</div>
-      <div class="pill">Скорость: <span id="speed">1.0</span>x</div>
+      <div class="pill" id="scorePill">Score: <span id="scoreValue">0</span></div>
+      <div class="pill">Lives: <span id="lives">5</span></div>
+      <div class="pill">Missed: <span id="missed">0</span>/5</div>
+      <div class="pill">Speed: <span id="speed">1.0</span>x</div>
     </div>
-    <button class="btn" id="pauseBtn">Пауза</button>
-    <button class="btn" id="bgBtn">Фон</button>
-    <button class="btn" id="paletteBtn">Палитра</button>
+    <button class="btn" id="pauseBtn">Pause</button>
+    <button class="btn" id="bgBtn">Background</button>
+    <button class="btn" id="paletteBtn">Palette</button>
   </div>
 
   <div id="game"></div>
 
   <div id="overlay">
     <div class="card">
-      <h1>Игра окончена</h1>
-      <p>Ты пропустил слишком много шариков.</p>
-      <p>Финальный счёт: <strong id="finalScore">0</strong></p>
-      <button class="btn restart" id="restartBtn">Играть снова</button>
-      <p class="small">Нажимай на шарики, чтобы лопать их. Бонусные шарики дают особые эффекты.</p>
+      <h1>Game Over</h1>
+      <p>You missed too many balloons.</p>
+      <p>Final score: <strong id="finalScore">0</strong></p>
+      <button class="btn restart" id="restartBtn">Play Again</button>
+      <p class="small">Tap balloons to pop them. Special balloons have unique effects.</p>
     </div>
   </div>
 
   <script>
     const game = document.getElementById('game');
-    const scoreEl = document.getElementById('score');
+    const scorePill = document.getElementById('scorePill');
+    const scoreValue = document.getElementById('scoreValue');
     const livesEl = document.getElementById('lives');
     const missedEl = document.getElementById('missed');
     const speedEl = document.getElementById('speed');
@@ -233,7 +295,8 @@
     const finalScore = document.getElementById('finalScore');
     const restartBtn = document.getElementById('restartBtn');
 
-    let score = 0;
+    let actualScore = 0;
+    let displayedScore = 0;
     let lives = 5;
     let missed = 0;
     let paused = false;
@@ -241,6 +304,7 @@
     let spawnTimer = 0;
     let balloons = [];
     let balloonId = 0;
+    let nextLifeMilestone = 10000;
 
     const bgThemes = [
       ['#0f172a', '#111827'],
@@ -252,123 +316,16 @@
     ];
     let bgIndex = 0;
 
-    let paletteSets = [
+    const paletteSets = [
       ['#ff5f6d', '#ffc371', '#4ade80', '#60a5fa', '#f472b6', '#f59e0b', '#a78bfa'],
       ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6'],
       ['#fb7185', '#f43f5e', '#ec4899', '#c084fc', '#38bdf8', '#34d399', '#facc15'],
       ['#ff8a65', '#ffd54f', '#81c784', '#4fc3f7', '#ba68c8', '#ff6f91', '#7c4dff']
     ];
-    let paletteIndex = 0;
-    let currentPalette = paletteSets[0];
-
-    function applyBackground() {
-      bgIndex = (bgIndex + 1) % bgThemes.length;
-      document.documentElement.style.setProperty('--bg1', bgThemes[bgIndex][0]);
-      document.documentElement.style.setProperty('--bg2', bgThemes[bgIndex][1]);
-    }
-
-    function applyPalette() {
-      paletteIndex = Math.floor(Math.random() * paletteSets.length);
-      currentPalette = paletteSets[paletteIndex].slice().sort(() => Math.random() - 0.5);
-    }
-
-    function updateHUD() {
-      scoreEl.textContent = score;
-      livesEl.textContent = lives;
-      missedEl.textContent = missed;
-      speedEl.textContent = getSpeed().toFixed(1);
-    }
-
-    function getSpeed() {
-      return 1 + Math.floor(score / 1000) * 0.15;
-    }
-
-    function getSpawnDelay() {
-      const base = 1100;
-      const reduction = Math.floor(score / 1000) * 35;
-      return Math.max(240, base - reduction);
-    }
-
-    function colorForScore() {
-      const band = Math.floor(score / 1000);
-      return currentPalette[band % currentPalette.length];
-    }
+    let currentPalette = paletteSets[0].slice();
 
     function rand(min, max) {
       return Math.random() * (max - min) + min;
-    }
-
-    function createBurst(x, y) {
-      const b = document.createElement('div');
-      b.className = 'burst';
-      b.style.left = x + 'px';
-      b.style.top = y + 'px';
-      game.appendChild(b);
-      setTimeout(() => b.remove(), 360);
-    }
-
-    function addLife() {
-      lives += 1;
-      updateHUD();
-    }
-
-    function allPopBonus() {
-      const copy = balloons.slice();
-      copy.forEach(b => popBalloon(b, true));
-    }
-
-    function spawnBalloon() {
-      const w = game.clientWidth;
-      const h = game.clientHeight;
-
-      const isBonusAll = Math.random() < 0.01;
-      const isBonusLife = Math.random() < 0.0001;
-
-      const size = rand(42, 82);
-      const x = rand(size, w - size);
-      const y = h + size + rand(10, 80);
-
-      const speed = rand(35, 80) * getSpeed();
-      const drift = rand(-18, 18);
-      const color = isBonusLife ? '#ffd700' : (isBonusAll ? '#ffffff' : colorForScore());
-
-      const balloon = document.createElement('div');
-      balloon.className = 'balloon';
-      if (isBonusAll) balloon.classList.add('bonus-all');
-      if (isBonusLife) balloon.classList.add('bonus-life');
-
-      balloon.style.width = size + 'px';
-      balloon.style.height = size * 1.15 + 'px';
-      balloon.style.left = x + 'px';
-      balloon.style.top = y + 'px';
-      balloon.style.background = `linear-gradient(135deg, ${color}, ${shade(color, -18)})`;
-      balloon.dataset.id = (++balloonId).toString();
-
-      if (isBonusAll) balloon.textContent = '★';
-      else if (isBonusLife) balloon.textContent = '+1';
-      else balloon.textContent = '';
-
-      const obj = {
-        id: balloonId,
-        el: balloon,
-        x,
-        y,
-        size,
-        speed,
-        drift,
-        isBonusAll,
-        isBonusLife,
-        popped: false,
-        spawnAt: performance.now()
-      };
-
-      balloon.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        popBalloon(obj);
-      });
-
-      balloons.push(obj);
-      game.appendChild(balloon);
     }
 
     function shade(hex, amt) {
@@ -383,49 +340,205 @@
       return `rgb(${r},${g},${b})`;
     }
 
-    function popBalloon(balloon, silent = false) {
-      if (!balloon || balloon.popped) return;
-      balloon.popped = true;
+    function getSpeed() {
+      return 1 + Math.floor(actualScore / 1000) * 0.15;
+    }
 
-      const idx = balloons.findIndex(b => b.id === balloon.id);
-      if (idx >= 0) balloons.splice(idx, 1);
+    function getSpawnDelay() {
+      const base = 1100;
+      const reduction = Math.floor(actualScore / 1000) * 35;
+      return Math.max(240, base - reduction);
+    }
 
-      const rect = balloon.el.getBoundingClientRect();
-      createBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      balloon.el.remove();
+    function colorForScore() {
+      const band = Math.floor(actualScore / 1000);
+      return currentPalette[band % currentPalette.length];
+    }
 
-      if (balloon.isBonusAll) {
-        allPopBonus();
-      } else if (balloon.isBonusLife) {
-        addLife();
-        score += 50;
-      } else {
-        score += 10;
+    function applyBackground() {
+      bgIndex = (bgIndex + 1) % bgThemes.length;
+      document.documentElement.style.setProperty('--bg1', bgThemes[bgIndex][0]);
+      document.documentElement.style.setProperty('--bg2', bgThemes[bgIndex][1]);
+    }
+
+    function applyPalette() {
+      const chosen = paletteSets[Math.floor(Math.random() * paletteSets.length)];
+      currentPalette = chosen.slice().sort(() => Math.random() - 0.5);
+    }
+
+    function bumpScorePill() {
+      scorePill.classList.remove('bump');
+      void scorePill.offsetWidth;
+      scorePill.classList.add('bump');
+    }
+
+    function addFloatingText(text, x, y) {
+      const el = document.createElement('div');
+      el.className = 'score-float';
+      el.textContent = text;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.color = text.startsWith('+') ? '#ffffff' : '#fde68a';
+      game.appendChild(el);
+      setTimeout(() => el.remove(), 760);
+    }
+
+    function updateHUD() {
+      livesEl.textContent = lives;
+      missedEl.textContent = missed;
+      speedEl.textContent = getSpeed().toFixed(1);
+    }
+
+    function addScore(amount, x, y) {
+      actualScore += amount;
+      bumpScorePill();
+      if (typeof x === 'number' && typeof y === 'number') {
+        addFloatingText(`+${amount}`, x, y);
       }
-
-      if (!silent) updateHUD();
       checkExtraLifeMilestones();
     }
 
-    let nextLifeMilestone = 10000;
     function checkExtraLifeMilestones() {
-      while (score >= nextLifeMilestone) {
-        addLife();
+      while (actualScore >= nextLifeMilestone) {
+        lives += 1;
         nextLifeMilestone += 10000;
       }
     }
 
+    function createBurst(x, y) {
+      const b = document.createElement('div');
+      b.className = 'burst';
+      b.style.left = x + 'px';
+      b.style.top = y + 'px';
+      game.appendChild(b);
+      setTimeout(() => b.remove(), 360);
+    }
+
+    function popBalloon(balloon, awardPoints = true) {
+      if (!balloon || balloon.popped) return;
+      balloon.popped = true;
+
+      const index = balloons.findIndex(b => b.id === balloon.id);
+      if (index >= 0) balloons.splice(index, 1);
+
+      const rect = balloon.el.getBoundingClientRect();
+      createBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+
+      if (balloon.el.parentNode) {
+        balloon.el.remove();
+      }
+
+      if (awardPoints) {
+        if (balloon.isBonusAll) {
+          addScore(50, rect.left + rect.width / 2, rect.top);
+          popAllBalloons();
+        } else if (balloon.isBonusLife) {
+          lives += 1;
+          addScore(50, rect.left + rect.width / 2, rect.top);
+        } else if (balloon.isBlack) {
+          addScore(100, rect.left + rect.width / 2, rect.top);
+        } else {
+          addScore(10, rect.left + rect.width / 2, rect.top);
+        }
+      }
+
+      updateHUD();
+    }
+
+    function popAllBalloons() {
+      const copy = balloons.slice();
+      copy.forEach(b => popBalloon(b, false));
+      balloons = [];
+    }
+
+    function spawnBalloon() {
+      const w = game.clientWidth;
+      const h = game.clientHeight;
+
+      const isBonusAll = Math.random() < 0.01;
+      const isBonusLife = !isBonusAll && Math.random() < 0.0001;
+      const isBlack = !isBonusAll && !isBonusLife && Math.random() < 0.04;
+
+      const size = rand(42, 84);
+      const x = rand(size, w - size);
+      const y = h + size + rand(10, 80);
+
+      const speed = rand(35, 80) * getSpeed();
+      const drift = rand(-18, 18);
+
+      const baseColor = isBlack ? '#111111' : (isBonusLife ? '#ffd700' : (isBonusAll ? '#ffffff' : colorForScore()));
+      const darker = isBlack ? '#000000' : shade(baseColor, -18);
+
+      const balloon = document.createElement('div');
+      balloon.className = 'balloon';
+      if (isBonusAll) balloon.classList.add('bonus-all');
+      if (isBonusLife) balloon.classList.add('bonus-life');
+      if (isBlack) balloon.classList.add('black-balloon');
+
+      balloon.style.width = size + 'px';
+      balloon.style.height = (size * 1.18) + 'px';
+      balloon.style.left = x + 'px';
+      balloon.style.top = y + 'px';
+      balloon.style.background = `linear-gradient(135deg, ${baseColor}, ${darker})`;
+
+      let hitsRemaining = 5;
+
+      if (isBonusAll) {
+        balloon.textContent = '★';
+      } else if (isBonusLife) {
+        balloon.textContent = '+1';
+      } else if (isBlack) {
+        balloon.textContent = hitsRemaining.toString();
+      }
+
+      const obj = {
+        id: ++balloonId,
+        el: balloon,
+        x,
+        y,
+        size,
+        speed,
+        drift,
+        isBonusAll,
+        isBonusLife,
+        isBlack,
+        hitsRemaining,
+        popped: false
+      };
+
+      balloon.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+
+        if (obj.popped) return;
+
+        if (obj.isBlack) {
+          obj.hitsRemaining -= 1;
+          obj.el.textContent = obj.hitsRemaining > 0 ? obj.hitsRemaining.toString() : '';
+          if (obj.hitsRemaining <= 0) {
+            popBalloon(obj, true);
+          }
+          return;
+        }
+
+        popBalloon(obj, true);
+      });
+
+      balloons.push(obj);
+      game.appendChild(balloon);
+    }
+
     function gameOver() {
       paused = true;
-      finalScore.textContent = score;
+      finalScore.textContent = actualScore;
       overlay.style.display = 'flex';
-      pauseBtn.textContent = 'Пауза';
+      pauseBtn.textContent = 'Pause';
     }
 
     function resetGame() {
       balloons.forEach(b => b.el.remove());
       balloons = [];
-      score = 0;
+      actualScore = 0;
+      displayedScore = 0;
       lives = 5;
       missed = 0;
       paused = false;
@@ -433,7 +546,22 @@
       spawnTimer = 0;
       nextLifeMilestone = 10000;
       overlay.style.display = 'none';
+      scoreValue.textContent = '0';
       updateHUD();
+    }
+
+    function animateScoreDisplay() {
+      if (displayedScore === actualScore) return;
+
+      const diff = actualScore - displayedScore;
+      const step = Math.max(1, Math.ceil(Math.abs(diff) * 0.18));
+      displayedScore += Math.sign(diff) * step;
+
+      if ((diff > 0 && displayedScore > actualScore) || (diff < 0 && displayedScore < actualScore)) {
+        displayedScore = actualScore;
+      }
+
+      scoreValue.textContent = displayedScore.toString();
     }
 
     function tick(now) {
@@ -468,30 +596,29 @@
 
           if (b.y + b.size < 0) {
             b.popped = true;
-            b.el.remove();
+            if (b.el.parentNode) b.el.remove();
             balloons.splice(i, 1);
+
             missed += 1;
             lives -= 1;
             updateHUD();
+
             if (lives <= 0 || missed >= 5) {
               gameOver();
               break;
             }
           }
         }
-
-        if (score >= Math.floor(score / 1000) * 1000) {
-          speedEl.textContent = getSpeed().toFixed(1);
-        }
       }
 
+      animateScoreDisplay();
       updateHUD();
       requestAnimationFrame(tick);
     }
 
     pauseBtn.addEventListener('click', () => {
       paused = !paused;
-      pauseBtn.textContent = paused ? 'Продолжить' : 'Пауза';
+      pauseBtn.textContent = paused ? 'Resume' : 'Pause';
     });
 
     bgBtn.addEventListener('click', () => {
@@ -506,16 +633,13 @@
       resetGame();
     });
 
-    // Легкое управление тапом по пустому месту: не мешает игре, но убирает фокус
     game.addEventListener('pointerdown', () => {});
 
-    // Старт
     applyBackground();
     applyPalette();
     updateHUD();
     requestAnimationFrame(tick);
 
-    // Спавн первый шарик сразу
     for (let i = 0; i < 3; i++) spawnBalloon();
   </script>
 </body>
